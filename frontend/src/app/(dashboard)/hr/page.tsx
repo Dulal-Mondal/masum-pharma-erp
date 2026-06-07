@@ -312,8 +312,8 @@ function AttendanceTab() {
                                             key={status}
                                             onClick={() => markMutation.mutate({ employeeId: emp.id, attendanceDate: selectedDate, status })}
                                             className={`text-xs px-2.5 py-1 rounded-full font-medium transition-all ${currentStatus === status
-                                                    ? statusConfig[status].color + ' ring-2 ring-offset-1 ring-indigo-400'
-                                                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                                                ? statusConfig[status].color + ' ring-2 ring-offset-1 ring-indigo-400'
+                                                : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                                                 }`}
                                         >
                                             {statusConfig[status].label}
@@ -568,8 +568,8 @@ function PaymentModal({ employee, month, year, onClose, onSaved }: {
                                         if (value === 'SALARY') setValue('amount', Number(employee.basicSalary));
                                     }}
                                     className={`py-2 rounded-lg text-sm font-medium border transition-colors ${paymentType === value
-                                            ? `bg-${color}-600 text-white border-${color}-600`
-                                            : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
+                                        ? `bg-${color}-600 text-white border-${color}-600`
+                                        : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
                                         }`}
                                     style={{
                                         backgroundColor: paymentType === value
@@ -603,9 +603,9 @@ function PaymentModal({ employee, month, year, onClose, onSaved }: {
                         <input {...register('note')} placeholder="Optional" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
                     </div>
 
-                    <div className="bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2 text-xs text-indigo-700">
+                    {/* <div className="bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2 text-xs text-indigo-700">
                         ✓ এই payment automatically Expense এ যোগ হবে এবং Daily Account এ count হবে।
-                    </div>
+                    </div> */}
 
                     {apiError && <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2"><p className="text-xs text-red-600">{apiError}</p></div>}
 
