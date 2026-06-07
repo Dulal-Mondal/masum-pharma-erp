@@ -1,6 +1,3 @@
-// This is your Prisma schema file
-// Learn more: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,7 +8,7 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-// ─── Users ───────────────────────────────────────────────────────────────────
+// ─── Users ────────────────────────────────────────────────────────────────────
 
 model User {
   id        Int      @id @default(autoincrement())
@@ -31,7 +28,7 @@ enum Role {
   STAFF
 }
 
-// ─── Companies ───────────────────────────────────────────────────────────────
+// ─── Companies ────────────────────────────────────────────────────────────────
 
 model Company {
   id          Int              @id @default(autoincrement())
@@ -60,13 +57,13 @@ model PurchaseMaster {
 }
 
 model PurchaseItem {
-  id         Int            @id @default(autoincrement())
-  purchaseId Int
-  purchase   PurchaseMaster @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  id          Int            @id @default(autoincrement())
+  purchaseId  Int
+  purchase    PurchaseMaster @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
   productName String
-  quantity   Decimal        @db.Decimal(12, 2)
-  unitPrice  Decimal        @db.Decimal(12, 2)
-  amount     Decimal        @db.Decimal(12, 2)
+  quantity    Decimal        @db.Decimal(12, 2)
+  unitPrice   Decimal        @db.Decimal(12, 2)
+  amount      Decimal        @db.Decimal(12, 2)
 
   @@map("purchase_items")
 }
@@ -83,13 +80,14 @@ model ExpenseCategory {
 }
 
 model Expense {
-  id          Int             @id @default(autoincrement())
-  expenseDate DateTime        @db.Date
-  categoryId  Int
-  category    ExpenseCategory @relation(fields: [categoryId], references: [id])
-  amount      Decimal         @db.Decimal(12, 2)
-  note        String?
-  createdAt   DateTime        @default(now())
+  id             Int             @id @default(autoincrement())
+  expenseDate    DateTime        @db.Date
+  categoryId     Int
+  category       ExpenseCategory @relation(fields: [categoryId], references: [id])
+  amount         Decimal         @db.Decimal(12, 2)
+  note           String?
+  createdAt      DateTime        @default(now())
+  salaryPayments SalaryPayment[]
 
   @@map("expenses")
 }
@@ -99,7 +97,6 @@ model Expense {
 model TransactionType {
   id                   Int               @id @default(autoincrement())
   transactionName      String            @unique
-  // IN = cash comes into hand, OUT = cash goes out of hand
   transactionDirection Direction
   isActive             Boolean           @default(true)
   transactions         CashTransaction[]
@@ -140,4 +137,66 @@ model DailyAccount {
   createdAt      DateTime @default(now())
 
   @@map("daily_accounts")
+}
+
+// ─── HR Module ────────────────────────────────────────────────────────────────
+
+model Employee {
+  id             Int             @id @default(autoincrement())
+  name           String
+  phone          String?
+  address        String?
+  position       String?
+  joinDate       DateTime        @db.Date
+  basicSalary    Decimal         @db.Decimal(12, 2) @default(0)
+  isActive       Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  attendance     Attendance[]
+  salaryPayments SalaryPayment[]
+
+  @@map("employees")
+}
+
+model Attendance {
+  id             Int              @id @default(autoincrement())
+  employeeId     Int
+  employee       Employee         @relation(fields: [employeeId], references: [id])
+  attendanceDate DateTime         @db.Date
+  status         AttendanceStatus @default(PRESENT)
+  note           String?
+  createdAt      DateTime         @default(now())
+
+  @@unique([employeeId, attendanceDate])
+  @@map("attendance")
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  HALF_DAY
+  HOLIDAY
+  LEAVE
+}
+
+model SalaryPayment {
+  id          Int         @id @default(autoincrement())
+  employeeId  Int
+  employee    Employee    @relation(fields: [employeeId], references: [id])
+  paymentDate DateTime    @db.Date
+  paymentType PaymentType
+  amount      Decimal     @db.Decimal(12, 2)
+  month       Int?
+  year        Int?
+  note        String?
+  expenseId   Int?
+  expense     Expense?    @relation(fields: [expenseId], references: [id])
+  createdAt   DateTime    @default(now())
+
+  @@map("salary_payments")
+}
+
+enum PaymentType {
+  SALARY
+  BONUS
+  PARTIAL
 }
