@@ -7,7 +7,7 @@ import { Toaster } from '@/components/ui/toaster';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Masum Pharma',
+  title: 'Masum Pharma Ltd.',
   icons: {
     icon: '/favicon.png',
   },
