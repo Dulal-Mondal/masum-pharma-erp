@@ -144,8 +144,8 @@ export default function Sidebar() {
             {/* Footer */}
             <div className="px-5 py-4 border-t border-gray-100">
                 <p className="text-xs text-gray-400">v1.0.0</p>
-                <p className="text-xs text-gray-400">
-                    Produced by <span className="font-medium text-gray-300">Mirasoftai</span>
+                <p className="text-xs text-red-400">
+                    Produced by <span className="font-medium text-red-500">Mirasoftai</span>
                 </p>
             </div>
         </aside>
