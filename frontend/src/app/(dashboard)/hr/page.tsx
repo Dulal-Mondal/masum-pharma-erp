@@ -870,9 +870,9 @@ function PaymentModal({ employee, month, year, onClose, onSaved }: {
                         <input {...register('note')} placeholder="Optional" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
                     </div>
 
-                    <div className="bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2 text-xs text-indigo-700">
+                    {/* <div className="bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2 text-xs text-indigo-700">
                         ✓ এই payment automatically Expense এ যোগ হবে এবং Daily Account এ count হবে।
-                    </div>
+                    </div> */}
 
                     {apiError && <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2"><p className="text-xs text-red-600">{apiError}</p></div>}
 

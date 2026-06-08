@@ -564,7 +564,7 @@ export default function DailyClosingPage() {
                             )}
 
                             {/* Formula card */}
-                            <div className="mt-4 bg-gray-50 rounded-xl border border-gray-200 p-4">
+                            {/* <div className="mt-4 bg-gray-50 rounded-xl border border-gray-200 p-4">
                                 <p className="text-xs font-semibold text-gray-500 uppercase mb-2">How It Works</p>
                                 <div className="text-xs text-gray-500 space-y-1 font-mono">
                                     <p>Sales = Closing + Purchase</p>
@@ -574,7 +574,7 @@ export default function DailyClosingPage() {
                                         <p>Profit = Sales - Purchase - Expense</p>
                                     </div>
                                 </div>
-                            </div>
+                            </div> */}
                         </div>
                     </div>
                 </PrintLayout>
