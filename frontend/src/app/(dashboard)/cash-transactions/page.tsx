@@ -480,8 +480,8 @@ export default function CashTransactionsPage() {
                                                 <td className="px-5 py-3 font-medium text-gray-900">{t.transactionType.transactionName}</td>
                                                 <td className="px-5 py-3">
                                                     <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full ${t.transactionType.transactionDirection === 'IN'
-                                                            ? 'bg-green-100 text-green-700'
-                                                            : 'bg-red-100 text-red-700'
+                                                        ? 'bg-green-100 text-green-700'
+                                                        : 'bg-red-100 text-red-700'
                                                         }`}>
                                                         {t.transactionType.transactionDirection === 'IN'
                                                             ? <><ArrowDownLeft size={11} /> IN</>

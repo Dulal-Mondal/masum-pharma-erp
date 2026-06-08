@@ -20,6 +20,7 @@ router.get('/attendance/summary/:id', hrController.getAttendanceSummary);
 // Salary Payments
 router.post('/payments', hrController.makePayment);
 router.get('/payments', hrController.getAllPayments);
+router.delete('/payments/:id', hrController.deletePayment);
 router.get('/payments/employee/:id', hrController.getPaymentsByEmployee);
 router.get('/payments/monthly-status', hrController.getMonthlySalaryStatus);
 

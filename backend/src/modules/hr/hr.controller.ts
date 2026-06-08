@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { hrService } from './hr.service';
-import { sendSuccess, sendError } from '../../utils/response';
+import { sendSuccess } from '../../utils/response';
 
 const employeeSchema = z.object({
     name: z.string().min(1, 'Name is required'),
@@ -30,7 +30,6 @@ const paymentSchema = z.object({
 });
 
 export const hrController = {
-    // ─── Employees ──────────────────────────────────────────────────────────────
     async createEmployee(req: Request, res: Response, next: NextFunction): Promise<void> {
         try {
             const data = employeeSchema.parse(req.body);
@@ -68,7 +67,6 @@ export const hrController = {
         } catch (err) { next(err); }
     },
 
-    // ─── Attendance ─────────────────────────────────────────────────────────────
     async markAttendance(req: Request, res: Response, next: NextFunction): Promise<void> {
         try {
             const data = attendanceSchema.parse(req.body);
@@ -99,12 +97,19 @@ export const hrController = {
         } catch (err) { next(err); }
     },
 
-    // ─── Salary Payments ────────────────────────────────────────────────────────
     async makePayment(req: Request, res: Response, next: NextFunction): Promise<void> {
         try {
             const data = paymentSchema.parse(req.body);
             const payment = await hrService.makePayment(data);
             sendSuccess(res, payment, 'Payment processed and added to expenses', 201);
+        } catch (err) { next(err); }
+    },
+
+    // FIX: Delete payment also deletes linked expense
+    async deletePayment(req: Request, res: Response, next: NextFunction): Promise<void> {
+        try {
+            const result = await hrService.deletePayment(Number(req.params.id));
+            sendSuccess(res, result, result.message);
         } catch (err) { next(err); }
     },
 

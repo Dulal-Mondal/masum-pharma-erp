@@ -1,23 +1,15 @@
 import { prisma } from '../../config/database';
 import { toNumber } from '../../utils/calculate';
 
-// ─── Employee ─────────────────────────────────────────────────────────────────
-
 export const hrService = {
-    // Employees
+    // ─── Employees ───────────────────────────────────────────────────────────────
+
     async createEmployee(data: {
-        name: string;
-        phone?: string;
-        address?: string;
-        position?: string;
-        joinDate: string;
-        basicSalary: number;
+        name: string; phone?: string; address?: string;
+        position?: string; joinDate: string; basicSalary: number;
     }) {
         return prisma.employee.create({
-            data: {
-                ...data,
-                joinDate: new Date(data.joinDate),
-            },
+            data: { ...data, joinDate: new Date(data.joinDate) },
         });
     },
 
@@ -32,25 +24,15 @@ export const hrService = {
         return prisma.employee.findUniqueOrThrow({
             where: { id },
             include: {
-                salaryPayments: {
-                    orderBy: { paymentDate: 'desc' },
-                    take: 12,
-                },
+                salaryPayments: { orderBy: { paymentDate: 'desc' }, take: 12 },
             },
         });
     },
 
-    async updateEmployee(
-        id: number,
-        data: {
-            name: string;
-            phone?: string;
-            address?: string;
-            position?: string;
-            joinDate: string;
-            basicSalary: number;
-        }
-    ) {
+    async updateEmployee(id: number, data: {
+        name: string; phone?: string; address?: string;
+        position?: string; joinDate: string; basicSalary: number;
+    }) {
         return prisma.employee.update({
             where: { id },
             data: { ...data, joinDate: new Date(data.joinDate) },
@@ -62,13 +44,11 @@ export const hrService = {
         return { message: 'Employee deactivated' };
     },
 
-    // ─── Attendance ─────────────────────────────────────────────────────────────
+    // ─── Attendance ───────────────────────────────────────────────────────────────
 
     async markAttendance(data: {
-        employeeId: number;
-        attendanceDate: string;
-        status: 'PRESENT' | 'ABSENT' | 'HALF_DAY' | 'HOLIDAY' | 'LEAVE';
-        note?: string;
+        employeeId: number; attendanceDate: string;
+        status: 'PRESENT' | 'ABSENT' | 'HALF_DAY' | 'HOLIDAY' | 'LEAVE'; note?: string;
     }) {
         return prisma.attendance.upsert({
             where: {
@@ -83,22 +63,17 @@ export const hrService = {
                 status: data.status,
                 note: data.note,
             },
-            update: {
-                status: data.status,
-                note: data.note,
-            },
+            update: { status: data.status, note: data.note },
         });
     },
 
     async getAttendanceByMonth(year: number, month: number, employeeId?: number) {
         const startDate = new Date(year, month - 1, 1);
         const endDate = new Date(year, month, 0);
-
         const where: Record<string, unknown> = {
             attendanceDate: { gte: startDate, lte: endDate },
         };
         if (employeeId) where.employeeId = employeeId;
-
         return prisma.attendance.findMany({
             where,
             include: { employee: { select: { id: true, name: true, position: true } } },
@@ -109,20 +84,10 @@ export const hrService = {
     async getAttendanceSummary(employeeId: number, year: number, month: number) {
         const startDate = new Date(year, month - 1, 1);
         const endDate = new Date(year, month, 0);
-
         const records = await prisma.attendance.findMany({
             where: { employeeId, attendanceDate: { gte: startDate, lte: endDate } },
         });
-
-        const summary = {
-            present: 0,
-            absent: 0,
-            halfDay: 0,
-            holiday: 0,
-            leave: 0,
-            total: records.length,
-        };
-
+        const summary = { present: 0, absent: 0, halfDay: 0, holiday: 0, leave: 0, total: records.length };
         for (const r of records) {
             if (r.status === 'PRESENT') summary.present++;
             else if (r.status === 'ABSENT') summary.absent++;
@@ -130,15 +95,17 @@ export const hrService = {
             else if (r.status === 'HOLIDAY') summary.holiday++;
             else if (r.status === 'LEAVE') summary.leave++;
         }
-
         return summary;
     },
 
-    // ─── Salary Payments ─────────────────────────────────────────────────────────
+    // ─── Salary Payments ──────────────────────────────────────────────────────────
 
     /**
-     * Pay salary/bonus/partial — automatically creates an Expense entry
-     * so it shows up in daily accounts and expense reports.
+     * FIX 1: Salary → "Staff Salary" category
+     *        Bonus  → "Bonus" category (auto-created if missing)
+     *        Partial → "Staff Salary" category
+     *
+     * FIX 2: Delete payment also deletes linked expense
      */
     async makePayment(data: {
         employeeId: number;
@@ -153,40 +120,49 @@ export const hrService = {
             where: { id: data.employeeId },
         });
 
-        // Find "Staff Salary" category — fallback to first available
-        let salaryCategory = await prisma.expenseCategory.findFirst({
-            where: { categoryName: { contains: 'Salary', mode: 'insensitive' } },
-        });
+        // ── Pick the right expense category based on payment type ──
+        let category;
 
-        if (!salaryCategory) {
-            salaryCategory = await prisma.expenseCategory.findFirst();
-        }
-
-        if (!salaryCategory) {
-            throw new Error('No expense category found. Please create one in Settings.');
+        if (data.paymentType === 'BONUS') {
+            // Find or create "Bonus" category
+            category = await prisma.expenseCategory.findFirst({
+                where: { categoryName: { contains: 'Bonus', mode: 'insensitive' } },
+            });
+            if (!category) {
+                category = await prisma.expenseCategory.create({
+                    data: { categoryName: 'Bonus' },
+                });
+            }
+        } else {
+            // Salary or Partial → "Staff Salary" category
+            category = await prisma.expenseCategory.findFirst({
+                where: { categoryName: { contains: 'Salary', mode: 'insensitive' } },
+            });
+            if (!category) {
+                // Fallback: create it
+                category = await prisma.expenseCategory.create({
+                    data: { categoryName: 'Staff Salary' },
+                });
+            }
         }
 
         const typeLabel =
-            data.paymentType === 'SALARY'
-                ? 'Salary'
-                : data.paymentType === 'BONUS'
-                    ? 'Bonus'
+            data.paymentType === 'SALARY' ? 'Salary'
+                : data.paymentType === 'BONUS' ? 'Bonus'
                     : 'Partial Salary';
 
         const expenseNote = `${typeLabel} - ${employee.name}${data.note ? ` (${data.note})` : ''}`;
 
         return prisma.$transaction(async (tx) => {
-            // 1. Create expense entry
             const expense = await tx.expense.create({
                 data: {
                     expenseDate: new Date(data.paymentDate),
-                    categoryId: salaryCategory!.id,
+                    categoryId: category!.id,
                     amount: data.amount,
                     note: expenseNote,
                 },
             });
 
-            // 2. Create salary payment record linked to expense
             const payment = await tx.salaryPayment.create({
                 data: {
                     employeeId: data.employeeId,
@@ -207,6 +183,27 @@ export const hrService = {
         });
     },
 
+    /**
+     * FIX 1: Delete payment AND its linked expense together
+     */
+    async deletePayment(id: number) {
+        const payment = await prisma.salaryPayment.findUniqueOrThrow({
+            where: { id },
+        });
+
+        await prisma.$transaction(async (tx) => {
+            // Delete salary payment first (FK constraint)
+            await tx.salaryPayment.delete({ where: { id } });
+
+            // Then delete the linked expense if it exists
+            if (payment.expenseId) {
+                await tx.expense.delete({ where: { id: payment.expenseId } });
+            }
+        });
+
+        return { message: 'Payment and linked expense deleted successfully' };
+    },
+
     async getPaymentsByEmployee(employeeId: number) {
         return prisma.salaryPayment.findMany({
             where: { employeeId },
@@ -219,12 +216,11 @@ export const hrService = {
         const where: Record<string, unknown> = {};
         if (filters?.startDate || filters?.endDate) {
             where.paymentDate = {
-                ...(filters.startDate ? { gte: new Date(filters.startDate) } : {}),
-                ...(filters.endDate ? { lte: new Date(filters.endDate) } : {}),
+                ...(filters?.startDate ? { gte: new Date(filters.startDate) } : {}),
+                ...(filters?.endDate ? { lte: new Date(filters.endDate) } : {}),
             };
         }
         if (filters?.type) where.paymentType = filters.type;
-
         return prisma.salaryPayment.findMany({
             where,
             include: { employee: { select: { id: true, name: true, position: true } } },
@@ -234,7 +230,6 @@ export const hrService = {
 
     async getMonthlySalaryStatus(year: number, month: number) {
         const employees = await prisma.employee.findMany({ where: { isActive: true } });
-
         const payments = await prisma.salaryPayment.findMany({
             where: { year, month },
             include: { employee: { select: { id: true, name: true } } },
@@ -242,17 +237,23 @@ export const hrService = {
 
         return employees.map((emp) => {
             const empPayments = payments.filter((p) => p.employeeId === emp.id);
-            const totalPaid = empPayments.reduce((s, p) => s + toNumber(p.amount), 0);
-            const salaryPaid = empPayments.filter((p) => p.paymentType === 'SALARY').length > 0;
-            const bonusPaid = empPayments.filter((p) => p.paymentType === 'BONUS').length > 0;
+
+            // Salary + Partial count toward basic salary — Bonus is separate
+            const salaryPaid = empPayments
+                .filter((p) => p.paymentType === 'SALARY' || p.paymentType === 'PARTIAL')
+                .reduce((s, p) => s + toNumber(p.amount), 0);
+
+            const bonusPaid = empPayments
+                .filter((p) => p.paymentType === 'BONUS')
+                .reduce((s, p) => s + toNumber(p.amount), 0);
 
             return {
                 employee: emp,
                 basicSalary: toNumber(emp.basicSalary),
-                totalPaid,
-                remaining: Math.max(0, toNumber(emp.basicSalary) - totalPaid),
                 salaryPaid,
                 bonusPaid,
+                remaining: Math.max(0, toNumber(emp.basicSalary) - salaryPaid),
+                isSalaryFullyPaid: empPayments.some((p) => p.paymentType === 'SALARY'),
                 payments: empPayments,
             };
         });

@@ -160,6 +160,17 @@ export const purchaseApi = {
     delete: (id: number) => api.delete(`/purchases/${id}`),
 };
 
+// export const expenseApi = {
+//     getAll: (params?: Record<string, unknown>) => api.get('/expenses', { params }),
+//     create: (data: unknown) => api.post('/expenses', data),
+//     update: (id: number, data: unknown) => api.put(`/expenses/${id}`, data),
+//     delete: (id: number) => api.delete(`/expenses/${id}`),
+//     getCategories: () => api.get('/expenses/categories/list'),
+//     createCategory: (categoryName: string) =>
+//         api.post('/expenses/categories', { categoryName }),
+// };
+
+
 export const expenseApi = {
     getAll: (params?: Record<string, unknown>) => api.get('/expenses', { params }),
     create: (data: unknown) => api.post('/expenses', data),
@@ -168,6 +179,7 @@ export const expenseApi = {
     getCategories: () => api.get('/expenses/categories/list'),
     createCategory: (categoryName: string) =>
         api.post('/expenses/categories', { categoryName }),
+    deleteCategory: (id: number) => api.delete(`/expenses/categories/${id}`),  // ← এটা যোগ করুন
 };
 
 export const cashTransactionApi = {
@@ -214,6 +226,7 @@ export const hrApi = {
     getAttendanceSummary: (id: number, params?: Record<string, unknown>) => api.get(`/hr/attendance/summary/${id}`, { params }),
     makePayment: (data: unknown) => api.post('/hr/payments', data),
     getAllPayments: (params?: Record<string, unknown>) => api.get('/hr/payments', { params }),
+    deletePayment: (id: number) => api.delete(`/hr/payments/${id}`),
     getEmployeePayments: (id: number) => api.get(`/hr/payments/employee/${id}`),
     getMonthlySalaryStatus: (params?: Record<string, unknown>) => api.get('/hr/payments/monthly-status', { params }),
 };

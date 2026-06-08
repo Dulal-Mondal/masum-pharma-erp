@@ -7,6 +7,7 @@ import { formatCurrency, formatDate, today } from '@/lib/utils';
 import {
     Users, CalendarDays, Wallet, Plus, Trash2, Pencil,
     Loader2, CheckCircle, Clock, XCircle, ChevronDown,
+    FileSpreadsheet, FileDown,
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -241,7 +242,9 @@ function AttendanceTab() {
     const [month, setMonth] = useState(now.getMonth() + 1);
     const [year, setYear] = useState(now.getFullYear());
     const [selectedDate, setSelectedDate] = useState(today());
+    const [isExporting, setIsExporting] = useState(false);
     const queryClient = useQueryClient();
+    const SHOP_NAME = 'Masum Pharma Ltd.';
 
     const { data: employees = [] } = useQuery({
         queryKey: ['employees'],
@@ -268,6 +271,83 @@ function AttendanceTab() {
         return rec?.status ?? null;
     };
 
+    const exportAttXLSX = async () => {
+        setIsExporting(true);
+        try {
+            const XLSX = await import('xlsx');
+            const periodText = `${monthNames[month - 1]} ${year}`;
+            const wsData = [
+                [SHOP_NAME],
+                ['HR Attendance Report'],
+                [`Period: ${periodText}`],
+                [`Printed: ${new Date().toLocaleString()}`],
+                [],
+                ['Employee', 'Position', 'Present', 'Absent', 'Half Day', 'Holiday', 'Leave', 'Total Marked'],
+                ...employees.map((emp) => {
+                    const empAtt = attendance.filter((a) => a.employeeId === emp.id);
+                    const count = (s: string) => empAtt.filter((a) => a.status === s).length;
+                    return [emp.name, emp.position || 'Staff', count('PRESENT'), count('ABSENT'), count('HALF_DAY'), count('HOLIDAY'), count('LEAVE'), empAtt.length];
+                }),
+            ];
+            const ws = XLSX.utils.aoa_to_sheet(wsData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Attendance');
+            XLSX.writeFile(wb, `${SHOP_NAME} - Attendance - ${periodText}.xlsx`);
+        } catch { alert('Run: npm install xlsx'); }
+        finally { setIsExporting(false); }
+    };
+
+    const exportAttPDF = () => {
+        const periodText = `${monthNames[month - 1]} ${year}`;
+        const rows = employees.map((emp) => {
+            const empAtt = attendance.filter((a) => a.employeeId === emp.id);
+            const count = (s: string) => empAtt.filter((a) => a.status === s).length;
+            return `<tr>
+        <td>${emp.name}<br><small style="color:#777">${emp.position || 'Staff'}</small></td>
+        <td style="text-align:center;color:#16a34a;font-weight:bold">${count('PRESENT')}</td>
+        <td style="text-align:center;color:#dc2626;font-weight:bold">${count('ABSENT')}</td>
+        <td style="text-align:center;color:#d97706;font-weight:bold">${count('HALF_DAY')}</td>
+        <td style="text-align:center;color:#2563eb;font-weight:bold">${count('HOLIDAY')}</td>
+        <td style="text-align:center;color:#7c3aed;font-weight:bold">${count('LEAVE')}</td>
+        <td style="text-align:center">${empAtt.length}</td>
+      </tr>`;
+        }).join('');
+
+        const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+      <title>${SHOP_NAME} - Attendance</title>
+      <style>
+        @page { margin: 12mm 10mm; size: A4 portrait; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: Arial, sans-serif; font-size: 10pt; }
+        .header { text-align: center; margin-bottom: 12pt; }
+        .header h1 { font-size: 16pt; font-weight: bold; }
+        .header h2 { font-size: 12pt; margin-top: 3pt; }
+        .header p { font-size: 9pt; color: #555; margin-top: 2pt; }
+        .divider { border-top: 2px solid #000; margin: 8pt 0; }
+        table { width: 100%; border-collapse: collapse; }
+        thead tr { background: #1a1a1a; color: #fff; }
+        thead th { padding: 5pt 7pt; text-align: center; font-size: 9pt; border: 1pt solid #000; }
+        thead th:first-child { text-align: left; }
+        tbody td { padding: 4pt 7pt; border: 0.5pt solid #ccc; font-size: 9pt; }
+        tbody tr:nth-child(even) td { background: #f5f5f5; }
+      </style></head><body>
+      <div class="header">
+        <h1>${SHOP_NAME}</h1>
+        <h2>Attendance Report — ${periodText}</h2>
+        <p>Printed: ${new Date().toLocaleString()}</p>
+      </div>
+      <div class="divider"></div>
+      <table>
+        <thead><tr><th style="text-align:left">Employee</th><th>Present</th><th>Absent</th><th>Half Day</th><th>Holiday</th><th>Leave</th><th>Total</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <script>window.onload=function(){window.print();window.onafterprint=function(){window.close();}}</script>
+      </body></html>`;
+
+        const w = window.open('', '_blank', 'width=900,height=700');
+        if (w) { w.document.write(html); w.document.close(); }
+    };
+
     return (
         <div>
             {/* Controls */}
@@ -289,6 +369,24 @@ function AttendanceTab() {
                         </select>
                         <input type="number" value={year} onChange={(e) => setYear(Number(e.target.value))} className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-20 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
                     </div>
+                </div>
+                <div className="flex gap-2 ml-auto">
+                    <button
+                        onClick={exportAttXLSX}
+                        disabled={isExporting || employees.length === 0}
+                        className="flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm font-medium px-3 py-2 rounded-lg"
+                    >
+                        {isExporting ? <Loader2 size={13} className="animate-spin" /> : <FileSpreadsheet size={13} />}
+                        Attendance XLSX
+                    </button>
+                    <button
+                        onClick={exportAttPDF}
+                        disabled={employees.length === 0}
+                        className="flex items-center gap-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-sm font-medium px-3 py-2 rounded-lg"
+                    >
+                        <FileDown size={13} />
+                        Attendance PDF
+                    </button>
                 </div>
             </div>
 
@@ -374,6 +472,7 @@ function SalaryTab() {
     const [year, setYear] = useState(now.getFullYear());
     const [showPayModal, setShowPayModal] = useState(false);
     const [selectedEmp, setSelectedEmp] = useState<Employee | null>(null);
+    const [isExporting, setIsExporting] = useState(false);
     const queryClient = useQueryClient();
 
     const { data: salaryStatus = [], isLoading } = useQuery({
@@ -381,45 +480,199 @@ function SalaryTab() {
         queryFn: () => hrApi.getMonthlySalaryStatus({ year, month }).then((r) => r.data.data as Array<{
             employee: Employee;
             basicSalary: number;
-            totalPaid: number;
+            salaryPaid: number;
+            bonusPaid: number;
             remaining: number;
-            salaryPaid: boolean;
-            bonusPaid: boolean;
+            isSalaryFullyPaid: boolean;
+            payments: Array<{ id: number; paymentType: string; amount: number; paymentDate: string; note?: string | null }>;
         }>),
     });
 
     const totalBasic = salaryStatus.reduce((s, e) => s + Number(e.basicSalary), 0);
-    const totalPaid = salaryStatus.reduce((s, e) => s + Number(e.totalPaid), 0);
+    const totalSalaryPaid = salaryStatus.reduce((s, e) => s + Number(e.salaryPaid), 0);
+    const totalBonusPaid = salaryStatus.reduce((s, e) => s + Number(e.bonusPaid), 0);
+
+    const SHOP_NAME = 'Masum Pharma Ltd.';
+    const periodText = `${monthNames[month - 1]} ${year}`;
+
+    const exportXLSX = async () => {
+        setIsExporting(true);
+        try {
+            const XLSX = await import('xlsx');
+            const wsData = [
+                [SHOP_NAME],
+                ['HR Salary Report'],
+                [`Period: ${periodText}`],
+                [`Printed: ${new Date().toLocaleString()}`],
+                [],
+                ['Employee', 'Position', 'Basic Salary', 'Salary Paid', 'Bonus', 'Remaining', 'Status'],
+                ...salaryStatus.map(({ employee: emp, basicSalary, salaryPaid, bonusPaid, remaining, isSalaryFullyPaid }) => [
+                    emp.name,
+                    emp.position || 'Staff',
+                    formatCurrency(basicSalary),
+                    formatCurrency(salaryPaid),
+                    bonusPaid > 0 ? formatCurrency(bonusPaid) : '—',
+                    formatCurrency(remaining),
+                    isSalaryFullyPaid ? 'Paid' : salaryPaid > 0 ? 'Partial' : 'Unpaid',
+                ]),
+                [],
+                ['Total', '', formatCurrency(totalBasic), formatCurrency(totalSalaryPaid), formatCurrency(totalBonusPaid), formatCurrency(Math.max(0, totalBasic - totalSalaryPaid)), ''],
+            ];
+            const ws = XLSX.utils.aoa_to_sheet(wsData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Salary Report');
+            XLSX.writeFile(wb, `${SHOP_NAME} - Salary Report - ${periodText}.xlsx`);
+        } catch { alert('Run: npm install xlsx'); }
+        finally { setIsExporting(false); }
+    };
+
+    const exportAttendanceXLSX = async (employees: Employee[], attendance: Array<{ employeeId: number; status: string }>) => {
+        setIsExporting(true);
+        try {
+            const XLSX = await import('xlsx');
+            const wsData = [
+                [SHOP_NAME],
+                ['HR Attendance Report'],
+                [`Period: ${periodText}`],
+                [`Printed: ${new Date().toLocaleString()}`],
+                [],
+                ['Employee', 'Position', 'Present', 'Absent', 'Half Day', 'Holiday', 'Leave', 'Total'],
+                ...employees.map((emp) => {
+                    const empAtt = attendance.filter((a) => a.employeeId === emp.id);
+                    const count = (s: string) => empAtt.filter((a) => a.status === s).length;
+                    return [emp.name, emp.position || 'Staff', count('PRESENT'), count('ABSENT'), count('HALF_DAY'), count('HOLIDAY'), count('LEAVE'), empAtt.length];
+                }),
+            ];
+            const ws = XLSX.utils.aoa_to_sheet(wsData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Attendance Report');
+            XLSX.writeFile(wb, `${SHOP_NAME} - Attendance Report - ${periodText}.xlsx`);
+        } catch { alert('Run: npm install xlsx'); }
+        finally { setIsExporting(false); }
+    };
+
+    const exportPDF = () => {
+        const rows = salaryStatus.map(({ employee: emp, basicSalary, salaryPaid, bonusPaid, remaining, isSalaryFullyPaid }) =>
+            `<tr>
+        <td>${emp.name}<br><small style="color:#777">${emp.position || 'Staff'}</small></td>
+        <td style="text-align:right">${formatCurrency(basicSalary)}</td>
+        <td style="text-align:right;color:#16a34a">${formatCurrency(salaryPaid)}</td>
+        <td style="text-align:right;color:#7c3aed">${bonusPaid > 0 ? formatCurrency(bonusPaid) : '—'}</td>
+        <td style="text-align:right;color:#dc2626">${formatCurrency(remaining)}</td>
+        <td style="text-align:center">
+          <span style="padding:2px 8px;border-radius:12px;font-size:9pt;background:${isSalaryFullyPaid ? '#dcfce7;color:#166534' : salaryPaid > 0 ? '#fef9c3;color:#854d0e' : '#fee2e2;color:#991b1b'}">
+            ${isSalaryFullyPaid ? 'Paid' : salaryPaid > 0 ? 'Partial' : 'Unpaid'}
+          </span>
+        </td>
+      </tr>`
+        ).join('');
+
+        const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+      <title>${SHOP_NAME} - Salary Report</title>
+      <style>
+        @page { margin: 12mm 10mm; size: A4 landscape; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: Arial, sans-serif; font-size: 10pt; }
+        .header { text-align: center; margin-bottom: 12pt; }
+        .header h1 { font-size: 16pt; font-weight: bold; }
+        .header h2 { font-size: 12pt; margin-top: 3pt; }
+        .header p { font-size: 9pt; color: #555; margin-top: 2pt; }
+        .divider { border-top: 2px solid #000; margin: 8pt 0; }
+        .summary { display: flex; gap: 12pt; margin-bottom: 10pt; }
+        .summary-card { border: 1pt solid #ccc; padding: 6pt 10pt; border-radius: 4pt; flex: 1; }
+        .summary-card .label { font-size: 8pt; color: #777; text-transform: uppercase; }
+        .summary-card .value { font-size: 13pt; font-weight: bold; margin-top: 2pt; }
+        table { width: 100%; border-collapse: collapse; }
+        thead tr { background: #1a1a1a; color: #fff; }
+        thead th { padding: 5pt 7pt; text-align: left; font-size: 9pt; border: 1pt solid #000; }
+        tbody td { padding: 4pt 7pt; border: 0.5pt solid #ccc; font-size: 9pt; }
+        tbody tr:nth-child(even) td { background: #f5f5f5; }
+        tfoot td { padding: 5pt 7pt; font-weight: bold; border-top: 2pt solid #000; background: #efefef; }
+      </style></head><body>
+      <div class="header">
+        <h1>${SHOP_NAME}</h1>
+        <h2>HR Salary Report — ${periodText}</h2>
+        <p>Printed: ${new Date().toLocaleString()}</p>
+      </div>
+      <div class="divider"></div>
+      <div class="summary">
+        <div class="summary-card"><div class="label">Total Payable</div><div class="value">${formatCurrency(totalBasic)}</div></div>
+        <div class="summary-card"><div class="label">Salary Paid</div><div class="value" style="color:#16a34a">${formatCurrency(totalSalaryPaid)}</div></div>
+        <div class="summary-card"><div class="label">Bonus Paid</div><div class="value" style="color:#7c3aed">${formatCurrency(totalBonusPaid)}</div></div>
+        <div class="summary-card"><div class="label">Remaining</div><div class="value" style="color:#dc2626">${formatCurrency(Math.max(0, totalBasic - totalSalaryPaid))}</div></div>
+      </div>
+      <table>
+        <thead><tr><th>Employee</th><th>Basic Salary</th><th>Salary Paid</th><th>Bonus</th><th>Remaining</th><th>Status</th></tr></thead>
+        <tbody>${rows}</tbody>
+        <tfoot><tr>
+          <td>Total (${salaryStatus.length} employees)</td>
+          <td style="text-align:right">${formatCurrency(totalBasic)}</td>
+          <td style="text-align:right">${formatCurrency(totalSalaryPaid)}</td>
+          <td style="text-align:right">${formatCurrency(totalBonusPaid)}</td>
+          <td style="text-align:right">${formatCurrency(Math.max(0, totalBasic - totalSalaryPaid))}</td>
+          <td></td>
+        </tr></tfoot>
+      </table>
+      <script>window.onload=function(){window.print();window.onafterprint=function(){window.close();}}</script>
+      </body></html>`;
+
+        const w = window.open('', '_blank', 'width=1100,height=700');
+        if (w) { w.document.write(html); w.document.close(); }
+    };
 
     return (
         <div>
-            {/* Month selector */}
-            <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4 flex gap-3 items-end">
-                <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">Month</label>
-                    <select value={month} onChange={(e) => setMonth(Number(e.target.value))} className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                        {monthNames.map((n, i) => <option key={i + 1} value={i + 1}>{n}</option>)}
-                    </select>
+            {/* Month selector + Export buttons */}
+            <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4 flex flex-wrap gap-3 items-end justify-between">
+                <div className="flex gap-3 items-end">
+                    <div>
+                        <label className="block text-xs font-medium text-gray-500 mb-1">Month</label>
+                        <select value={month} onChange={(e) => setMonth(Number(e.target.value))} className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            {monthNames.map((n, i) => <option key={i + 1} value={i + 1}>{n}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-medium text-gray-500 mb-1">Year</label>
+                        <input type="number" value={year} onChange={(e) => setYear(Number(e.target.value))} className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-24 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                    </div>
                 </div>
-                <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">Year</label>
-                    <input type="number" value={year} onChange={(e) => setYear(Number(e.target.value))} className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-24 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                <div className="flex gap-2">
+                    <button
+                        onClick={exportXLSX}
+                        disabled={isExporting || salaryStatus.length === 0}
+                        className="flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm font-medium px-3 py-2 rounded-lg"
+                    >
+                        {isExporting ? <Loader2 size={13} className="animate-spin" /> : <FileSpreadsheet size={13} />}
+                        Salary XLSX
+                    </button>
+                    <button
+                        onClick={exportPDF}
+                        disabled={salaryStatus.length === 0}
+                        className="flex items-center gap-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-sm font-medium px-3 py-2 rounded-lg"
+                    >
+                        <FileDown size={13} />
+                        Salary PDF
+                    </button>
                 </div>
             </div>
 
             {/* Summary cards */}
-            <div className="grid grid-cols-3 gap-4 mb-4">
+            <div className="grid grid-cols-4 gap-4 mb-4">
                 <div className="bg-white border border-gray-200 rounded-xl p-4">
                     <p className="text-xs font-medium text-gray-400 uppercase mb-1">Total Payable</p>
                     <p className="text-xl font-bold text-gray-900">{formatCurrency(totalBasic)}</p>
                 </div>
                 <div className="bg-green-50 border border-green-200 rounded-xl p-4">
-                    <p className="text-xs font-medium text-green-600 uppercase mb-1">Total Paid</p>
-                    <p className="text-xl font-bold text-green-800">{formatCurrency(totalPaid)}</p>
+                    <p className="text-xs font-medium text-green-600 uppercase mb-1">Salary Paid</p>
+                    <p className="text-xl font-bold text-green-800">{formatCurrency(totalSalaryPaid)}</p>
+                </div>
+                <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
+                    <p className="text-xs font-medium text-purple-600 uppercase mb-1">Bonus Paid</p>
+                    <p className="text-xl font-bold text-purple-800">{formatCurrency(totalBonusPaid)}</p>
                 </div>
                 <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-                    <p className="text-xs font-medium text-red-500 uppercase mb-1">Remaining</p>
-                    <p className="text-xl font-bold text-red-700">{formatCurrency(Math.max(0, totalBasic - totalPaid))}</p>
+                    <p className="text-xs font-medium text-red-500 uppercase mb-1">Salary Remaining</p>
+                    <p className="text-xl font-bold text-red-700">{formatCurrency(Math.max(0, totalBasic - totalSalaryPaid))}</p>
                 </div>
             </div>
 
@@ -456,28 +709,32 @@ function SalaryTab() {
                                 <tr>
                                     <th className="text-left px-5 py-3 text-xs font-medium text-gray-500 uppercase">Employee</th>
                                     <th className="text-right px-5 py-3 text-xs font-medium text-gray-500 uppercase">Basic Salary</th>
-                                    <th className="text-right px-5 py-3 text-xs font-medium text-gray-500 uppercase">Paid</th>
-                                    <th className="text-right px-5 py-3 text-xs font-medium text-gray-500 uppercase">Remaining</th>
+                                    <th className="text-right px-5 py-3 text-xs font-medium text-green-600 uppercase">Salary Paid</th>
+                                    <th className="text-right px-5 py-3 text-xs font-medium text-purple-600 uppercase">Bonus</th>
+                                    <th className="text-right px-5 py-3 text-xs font-medium text-red-500 uppercase">Remaining</th>
                                     <th className="text-center px-5 py-3 text-xs font-medium text-gray-500 uppercase">Status</th>
                                     <th className="px-5 py-3"></th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-50">
-                                {salaryStatus.map(({ employee: emp, basicSalary, totalPaid, remaining, salaryPaid }) => (
+                                {salaryStatus.map(({ employee: emp, basicSalary, salaryPaid, bonusPaid, remaining, isSalaryFullyPaid, payments }) => (
                                     <tr key={emp.id} className="hover:bg-gray-50">
                                         <td className="px-5 py-3">
                                             <p className="font-medium text-gray-900">{emp.name}</p>
                                             <p className="text-xs text-gray-400">{emp.position || 'Staff'}</p>
                                         </td>
                                         <td className="px-5 py-3 text-right text-gray-700">{formatCurrency(basicSalary)}</td>
-                                        <td className="px-5 py-3 text-right font-medium text-green-700">{formatCurrency(totalPaid)}</td>
+                                        <td className="px-5 py-3 text-right font-medium text-green-700">{formatCurrency(salaryPaid)}</td>
+                                        <td className="px-5 py-3 text-right font-medium text-purple-700">
+                                            {bonusPaid > 0 ? formatCurrency(bonusPaid) : <span className="text-gray-300">—</span>}
+                                        </td>
                                         <td className="px-5 py-3 text-right font-medium text-red-600">{formatCurrency(remaining)}</td>
                                         <td className="px-5 py-3 text-center">
-                                            {salaryPaid ? (
+                                            {isSalaryFullyPaid ? (
                                                 <span className="inline-flex items-center gap-1 text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
                                                     <CheckCircle size={11} /> Paid
                                                 </span>
-                                            ) : totalPaid > 0 ? (
+                                            ) : salaryPaid > 0 ? (
                                                 <span className="inline-flex items-center gap-1 text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">
                                                     <Clock size={11} /> Partial
                                                 </span>
@@ -488,12 +745,22 @@ function SalaryTab() {
                                             )}
                                         </td>
                                         <td className="px-5 py-3">
-                                            <button
-                                                onClick={() => { setSelectedEmp(emp); setShowPayModal(true); }}
-                                                className="flex items-center gap-1 text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-medium px-3 py-1.5 rounded-lg transition-colors"
-                                            >
-                                                <Wallet size={12} /> Pay
-                                            </button>
+                                            <div className="flex flex-col gap-1">
+                                                <button
+                                                    onClick={() => { setSelectedEmp(emp); setShowPayModal(true); }}
+                                                    className="flex items-center gap-1 text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-medium px-3 py-1.5 rounded-lg transition-colors"
+                                                >
+                                                    <Wallet size={12} /> Pay
+                                                </button>
+                                                {payments.length > 0 && (
+                                                    <PaymentHistoryList payments={payments} onDelete={() => {
+                                                        queryClient.invalidateQueries({ queryKey: ['salary-status'] });
+                                                        queryClient.invalidateQueries({ queryKey: ['expenses'] });
+                                                        queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+                                                        queryClient.invalidateQueries({ queryKey: ['daily-dashboard'] });
+                                                    }} />
+                                                )}
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}
@@ -603,9 +870,9 @@ function PaymentModal({ employee, month, year, onClose, onSaved }: {
                         <input {...register('note')} placeholder="Optional" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
                     </div>
 
-                    {/* <div className="bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2 text-xs text-indigo-700">
+                    <div className="bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2 text-xs text-indigo-700">
                         ✓ এই payment automatically Expense এ যোগ হবে এবং Daily Account এ count হবে।
-                    </div> */}
+                    </div>
 
                     {apiError && <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2"><p className="text-xs text-red-600">{apiError}</p></div>}
 
@@ -618,6 +885,54 @@ function PaymentModal({ employee, month, year, onClose, onSaved }: {
                     </div>
                 </form>
             </div>
+        </div>
+    );
+}
+// ─── Payment History List ─────────────────────────────────────────────────────
+
+function PaymentHistoryList({ payments, onDelete }: {
+    payments: Array<{ id: number; paymentType: string; amount: number; paymentDate: string; note?: string | null }>;
+    onDelete: () => void;
+}) {
+    const deleteMutation = useMutation({
+        mutationFn: (id: number) => hrApi.deletePayment(id),
+        onSuccess: onDelete,
+    });
+
+    const typeColors: Record<string, string> = {
+        SALARY: 'bg-indigo-100 text-indigo-700',
+        BONUS: 'bg-green-100 text-green-700',
+        PARTIAL: 'bg-amber-100 text-amber-700',
+    };
+
+    const typeLabel: Record<string, string> = {
+        SALARY: 'Salary',
+        BONUS: 'Bonus',
+        PARTIAL: 'Partial',
+    };
+
+    return (
+        <div className="mt-1 space-y-1">
+            {payments.map((p) => (
+                <div key={p.id} className="flex items-center gap-1.5 text-xs bg-gray-50 border border-gray-100 rounded px-2 py-1">
+                    <span className={`px-1.5 py-0.5 rounded text-xs font-medium whitespace-nowrap ${typeColors[p.paymentType] ?? 'bg-gray-100 text-gray-600'}`}>
+                        {typeLabel[p.paymentType] ?? p.paymentType}
+                    </span>
+                    <span className="text-gray-700 font-medium">{formatCurrency(Number(p.amount))}</span>
+                    <button
+                        onClick={() => {
+                            if (confirm('Delete this payment? The linked expense will also be deleted.')) {
+                                deleteMutation.mutate(p.id);
+                            }
+                        }}
+                        disabled={deleteMutation.isPending}
+                        className="ml-auto text-red-400 hover:text-red-600 disabled:opacity-30 p-0.5"
+                        title="Delete payment"
+                    >
+                        <Trash2 size={11} />
+                    </button>
+                </div>
+            ))}
         </div>
     );
 }
