@@ -2385,7 +2385,8 @@ function SalaryTab() {
     const [month, setMonth] = useState(now.getMonth() + 1);
     const [year, setYear] = useState(now.getFullYear());
     const [showPayModal, setShowPayModal] = useState(false);
-    const [selectedEmp, setSelectedEmp] = useState<Employee | null>(null);
+    // const [selectedEmp, setSelectedEmp] = useState<Employee | null>(null);
+    const [selectedEmp, setSelectedEmp] = useState<(Employee & { overtimeBill?: number; totalPayable?: number }) | null>(null);
     const [isExporting, setIsExporting] = useState(false);
     const queryClient = useQueryClient();
 
